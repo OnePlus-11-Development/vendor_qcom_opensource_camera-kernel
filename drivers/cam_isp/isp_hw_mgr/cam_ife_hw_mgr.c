@@ -12295,6 +12295,8 @@ end:
 	return rc;
 }
 
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+//qcom patch, case 06240392
 static int cam_hw_mgr_reset_out_of_sync_cnt(
 	struct cam_ife_hw_mgr_ctx *ife_ctx)
 {
@@ -12329,6 +12331,7 @@ static int cam_hw_mgr_reset_out_of_sync_cnt(
 
 	return rc;
 }
+#endif
 
 static void *cam_ife_mgr_user_dump_stream_info(
 	void *dump_struct, uint8_t *addr_ptr)
@@ -13609,8 +13612,9 @@ static int cam_ife_hw_mgr_handle_hw_sof(
 				&sof_done_event_data.boot_time, NULL);
 		}
 
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
 		cam_hw_mgr_reset_out_of_sync_cnt(ife_hw_mgr_ctx);
-
+#endif
 		if (atomic_read(&ife_hw_mgr_ctx->overflow_pending))
 			break;
 
@@ -13630,8 +13634,9 @@ static int cam_ife_hw_mgr_handle_hw_sof(
 			&sof_done_event_data.timestamp,
 			&sof_done_event_data.boot_time, NULL);
 
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
 		cam_hw_mgr_reset_out_of_sync_cnt(ife_hw_mgr_ctx);
-
+#endif
 		if (atomic_read(&ife_hw_mgr_ctx->overflow_pending))
 			break;
 
