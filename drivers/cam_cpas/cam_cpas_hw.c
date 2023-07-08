@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -54,7 +54,7 @@ static void cam_cpas_process_bw_overrides(
 		name_len)) {
 		if (cpas_settings->mnoc_hf_1_ab_bw)
 			*ab = cpas_settings->mnoc_hf_1_ab_bw;
-		if (cpas_settings->mnoc_hf_1_ib_bw)
+		if (cpas_settings->mnoc_hf_0_ib_bw)
 			*ib = cpas_settings->mnoc_hf_1_ib_bw;
 	} else if (strnstr(bus_client->common_data.name, "cam_sf_0",
 		name_len)) {
@@ -953,6 +953,7 @@ static int cam_cpas_axi_consolidate_path_votes(
 		curr_tree_node =
 			cpas_client->tree_node[path_data_type][transac_type];
 		if (curr_tree_node) {
+			path_found = true;
 			memcpy(axi_path, &axi_vote->axi_path[i],
 				sizeof(struct cam_cpas_axi_per_path_bw_vote));
 			con_axi_vote->num_paths++;
@@ -2831,32 +2832,6 @@ done:
 	return rc;
 }
 
-static int cam_cpas_hw_enable_tpg_mux_sel(struct cam_hw_info *cpas_hw,
-	uint32_t tpg_mux)
-{
-	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
-	int rc = 0;
-
-	mutex_lock(&cpas_hw->hw_mutex);
-
-	if (cpas_core->internal_ops.set_tpg_mux_sel) {
-		rc = cpas_core->internal_ops.set_tpg_mux_sel(
-			cpas_hw, tpg_mux);
-		if (rc) {
-			CAM_ERR(CAM_CPAS,
-				"failed in tpg mux selection rc=%d",
-				rc);
-		}
-	} else {
-		CAM_ERR(CAM_CPAS,
-			"CPAS tpg mux sel not enabled");
-		rc = -EINVAL;
-	}
-
-	mutex_unlock(&cpas_hw->hw_mutex);
-	return rc;
-}
-
 static int cam_cpas_activate_cache(
 	struct cam_hw_info *cpas_hw,
 	struct cam_sys_cache_info *cache_info)
@@ -3304,19 +3279,7 @@ static int cam_cpas_hw_process_cmd(void *hw_priv,
 		rc = cam_cpas_hw_csid_process_resume(hw_priv, *csid_idx);
 		break;
 	}
-	case CAM_CPAS_HW_CMD_TPG_MUX_SEL: {
-		uint32_t *tpg_mux_sel;
 
-		if (sizeof(uint32_t) != arg_size) {
-			CAM_ERR(CAM_CPAS, "cmd_type %d, size mismatch %d",
-				cmd_type, arg_size);
-			break;
-		}
-
-		tpg_mux_sel = (uint32_t *)cmd_args;
-		rc = cam_cpas_hw_enable_tpg_mux_sel(hw_priv, *tpg_mux_sel);
-		break;
-	}
 	default:
 		CAM_ERR(CAM_CPAS, "CPAS HW command not valid =%d", cmd_type);
 		break;
@@ -3415,122 +3378,6 @@ end:
 	return rc;
 }
 
-static struct cam_cpas_private_soc *cam_cpas_kobj_to_private_soc(struct kobject *kobj)
-{
-	return container_of(kobj, struct cam_cpas_kobj_map, base_kobj)->soc_private;
-}
-
-static ssize_t cam_cpas_get_num_ifes(struct kobject *kobj, struct kobj_attribute *attr,
-	char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "0x%x\n",
-		cam_cpas_kobj_to_private_soc(kobj)->sysfs_info.num_ifes);
-}
-
-static ssize_t cam_cpas_get_num_ife_lites(struct kobject *kobj, struct kobj_attribute *attr,
-	char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "0x%x\n",
-		cam_cpas_kobj_to_private_soc(kobj)->sysfs_info.num_ife_lites);
-}
-
-static ssize_t cam_cpas_get_num_sfes(struct kobject *kobj, struct kobj_attribute *attr,
-	char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "0x%x\n",
-		cam_cpas_kobj_to_private_soc(kobj)->sysfs_info.num_sfes);
-}
-
-static ssize_t cam_cpas_get_num_custom(struct kobject *kobj, struct kobj_attribute *attr,
-	char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "0x%x\n",
-		cam_cpas_kobj_to_private_soc(kobj)->sysfs_info.num_custom);
-}
-
-static struct kobj_attribute cam_num_ifes_attribute = __ATTR(num_ifes, 0444, cam_cpas_get_num_ifes,
-	NULL);
-
-static struct kobj_attribute cam_num_ife_lites_attribute = __ATTR(num_ife_lites, 0444,
-	cam_cpas_get_num_ife_lites, NULL);
-
-static struct kobj_attribute cam_num_sfes_attribute = __ATTR(num_sfes, 0444, cam_cpas_get_num_sfes,
-	NULL);
-
-static struct kobj_attribute cam_num_custom_attribute = __ATTR(num_sbi, 0444,
-	cam_cpas_get_num_custom, NULL);
-
-static void cam_cpas_hw_kobj_release(struct kobject *kobj)
-{
-	CAM_DBG(CAM_CPAS, "Release kobj");
-	kfree(container_of(kobj, struct cam_cpas_kobj_map, base_kobj));
-}
-
-static struct kobj_type kobj_cam_cpas_hw_type = {
-	.release = cam_cpas_hw_kobj_release,
-	.sysfs_ops = &kobj_sysfs_ops
-};
-
-static void cam_cpas_remove_sysfs(struct cam_cpas_private_soc *soc_private)
-{
-	sysfs_remove_file(soc_private->sysfs_info.kobj, &cam_num_ifes_attribute.attr);
-	sysfs_remove_file(soc_private->sysfs_info.kobj, &cam_num_ife_lites_attribute.attr);
-	sysfs_remove_file(soc_private->sysfs_info.kobj, &cam_num_sfes_attribute.attr);
-	sysfs_remove_file(soc_private->sysfs_info.kobj, &cam_num_custom_attribute.attr);
-	kobject_put(soc_private->sysfs_info.kobj);
-}
-
-static int cam_cpas_create_sysfs(struct cam_cpas_private_soc *soc_private)
-{
-	int rc = 0;
-	struct cam_cpas_kobj_map *kobj_camera = NULL;
-
-        kobj_camera = kzalloc(sizeof(*kobj_camera), GFP_KERNEL);
-	if (!kobj_camera) {
-		CAM_ERR(CAM_CPAS, "failed to allocate memory for kobj_camera");
-		return -ENOMEM;
-	}
-
-	kobject_init(&kobj_camera->base_kobj, &kobj_cam_cpas_hw_type);
-	kobj_camera->soc_private = soc_private;
-	soc_private->sysfs_info.kobj = &kobj_camera->base_kobj;
-
-	rc = kobject_add(&kobj_camera->base_kobj, kernel_kobj, "%s", "camera");
-	if (rc) {
-		kobject_put(&kobj_camera->base_kobj);
-		CAM_ERR(CAM_CPAS, "failed to add camera entry in sysfs");
-		goto end;
-	}
-
-	/* sysfs files are created in /sys/kernel/camera */
-	rc = sysfs_create_file(&kobj_camera->base_kobj, &cam_num_ifes_attribute.attr);
-	if (rc) {
-		CAM_ERR(CAM_CPAS, "failed to create num_ifes file, rc: %d", rc);
-		goto end;
-	}
-
-	rc = sysfs_create_file(&kobj_camera->base_kobj, &cam_num_ife_lites_attribute.attr);
-	if (rc) {
-		CAM_ERR(CAM_CPAS, "failed to create num_ife_lites file, rc: %d", rc);
-		goto end;
-	}
-
-	rc = sysfs_create_file(&kobj_camera->base_kobj, &cam_num_sfes_attribute.attr);
-	if (rc) {
-		CAM_ERR(CAM_CPAS, "failed to create num_sfes file. rc: %d", rc);
-		goto end;
-	}
-
-	rc = sysfs_create_file(&kobj_camera->base_kobj, &cam_num_custom_attribute.attr);
-	if (rc)
-		CAM_ERR(CAM_CPAS, "failed to create the num_sbi file, rc: %d", rc);
-
-	return rc;
-end:
-	cam_cpas_remove_sysfs(soc_private);
-	return rc;
-}
-
 int cam_cpas_hw_probe(struct platform_device *pdev,
 	struct cam_hw_intf **hw_intf)
 {
@@ -3611,13 +3458,6 @@ int cam_cpas_hw_probe(struct platform_device *pdev,
 
 	soc_private = (struct cam_cpas_private_soc *)
 		cpas_hw->soc_info.soc_private;
-
-	rc = cam_cpas_create_sysfs(soc_private);
-	if (rc) {
-		CAM_ERR(CAM_CPAS, "Failed to create sysfs entries, rc: %d", rc);
-		goto sysfs_fail;
-	}
-
 	cpas_core->num_clients = soc_private->num_clients;
 	atomic_set(&cpas_core->irq_count, 0);
 	init_waitqueue_head(&cpas_core->irq_count_wq);
@@ -3703,8 +3543,6 @@ client_cleanup:
 	cam_cpas_util_client_cleanup(cpas_hw);
 	cam_cpas_node_tree_cleanup(cpas_core, cpas_hw->soc_info.soc_private);
 deinit_platform_res:
-	cam_cpas_remove_sysfs(soc_private);
-sysfs_fail:
 	cam_cpas_soc_deinit_resources(&cpas_hw->soc_info);
 release_workq:
 	flush_workqueue(cpas_core->work_queue);
@@ -3736,7 +3574,6 @@ int cam_cpas_hw_remove(struct cam_hw_intf *cpas_hw_intf)
 		return -EINVAL;
 	}
 
-	cam_cpas_remove_sysfs(cpas_hw->soc_info.soc_private);
 	cam_cpas_util_axi_cleanup(cpas_core, &cpas_hw->soc_info);
 	cam_cpas_node_tree_cleanup(cpas_core, cpas_hw->soc_info.soc_private);
 	cam_cpas_util_unregister_bus_client(&cpas_core->ahb_bus_client);

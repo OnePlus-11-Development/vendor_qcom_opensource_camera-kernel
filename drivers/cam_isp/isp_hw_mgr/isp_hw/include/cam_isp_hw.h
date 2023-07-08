@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_ISP_HW_H_
@@ -220,7 +220,6 @@ enum cam_isp_hw_cmd_type {
 	CAM_ISP_HW_USER_DUMP,
 	CAM_ISP_HW_CMD_RDI_LCR_CFG,
 	CAM_ISP_HW_CMD_DRV_CONFIG,
-	CAM_ISP_HW_CMD_DYNAMIC_CLOCK_UPDATE,
 	CAM_ISP_HW_CMD_MAX,
 };
 
@@ -422,7 +421,6 @@ struct cam_isp_hw_get_res_for_mid {
  * @cmd:             Command buffer information
  * @use_scratch_cfg: To indicate if it's scratch buffer config
  * @trigger_cdm_en:  Flag to indicate if cdm is trigger
- * @reg_write:        if set use AHB to config rup/aup
  *
  */
 struct cam_isp_hw_get_cmd_update {
@@ -437,7 +435,6 @@ struct cam_isp_hw_get_cmd_update {
 		struct cam_isp_hw_get_wm_update      *rm_update;
 	};
 	bool trigger_cdm_en;
-	bool reg_write;
 };
 
 /*

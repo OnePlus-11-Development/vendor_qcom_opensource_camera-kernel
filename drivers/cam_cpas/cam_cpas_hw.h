@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CPAS_HW_H_
@@ -127,17 +127,6 @@ struct cam_cpas_axi_bw_info {
 };
 
 /**
- * struct cam_cpas_kobj_map: wrapper structure for base kobject
- *                               and cam cpas private soc info
- * @base_kobj: kernel object for camera sysfs
- * @soc_private: pointer to cam_cpas_private_soc structure
- */
-struct cam_cpas_kobj_map {
-	struct kobject base_kobj;
-	struct cam_cpas_private_soc *soc_private;
-};
-
-/**
  * struct cam_cpas_internal_ops - CPAS Hardware layer internal ops
  *
  * @get_hw_info: Function pointer for get hw info
@@ -150,7 +139,6 @@ struct cam_cpas_kobj_map {
  * @print_poweron_settings: Function pointer for hw to print poweron settings
  * @qchannel_handshake: Function pointer for hw core specific qchannel
  *                      handshake settings
- * @set_tpg_mux_sel: Set tpg mux select on CPAS TOP register
  *
  */
 struct cam_cpas_internal_ops {
@@ -167,7 +155,6 @@ struct cam_cpas_internal_ops {
 		uint32_t selection_mask);
 	int (*print_poweron_settings)(struct cam_hw_info *cpas_hw);
 	int (*qchannel_handshake)(struct cam_hw_info *cpas_hw, bool power_on, bool force_on);
-	int (*set_tpg_mux_sel)(struct cam_hw_info *cpas_hw, uint32_t tpg_num);
 };
 
 /**
